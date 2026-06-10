@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚡ Stream Extractor — Results</title>
+<style>
+  /* ── Tokens ─────────────────────────────────────────────────── */
+  :root {
+    --bg:        #0d1117;
+    --surface:   #161b22;
+    --surface2:  #1a1f2e;
+    --border:    #21262d;
+    --border2:   #2a3045;
+    --muted:     #484f58;
+    --subtle:    #607d8b;
+    --text:      #c9d1d9;
+    --bright:    #e8f5e9;
+    --accent:    #4fc3f7;
+    --purple:    #7c4dff;
+    --green:     #00e676;
+    --amber:     #ffb300;
+    --red:       #ef5350;
+    --red-dim:   #b71c1c;
+    --blue:      #1565c0;
+    --blue2:     #0d47a1;
+    --teal:      #00bcd4;
+    --host-bg:   #0d47a1;
+    --m3u8-col:  #00e676;
+    --mp4-col:   #ffb300;
+    --fail-col:  #ef5350;
+    --mono:      'Consolas', 'Cascadia Code', 'Fira Mono', monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ─────────────────────────────────────────────────── */
+  header {
+    background: linear-gradient(90deg, var(--bg) 0%, var(--surface) 40%, var(--bg) 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 72px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+
+  .logo span { color: var(--purple); }
+
+  .header-meta {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .stat-pill {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .stat-pill strong { color: var(--accent); }
+
+  #refresh-btn {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    color: var(--subtle);
+    padding: 6px 14px;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 12px;
+    transition: all .15s;
+  }
+  #refresh-btn:hover { background: var(--surface2); color: var(--text); border-color: var(--accent); }
+
+  /* ── Toolbar ─────────────────────────────────────────────────── */
+  .toolbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .filter-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    color: var(--muted);
+    padding: 5px 14px;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    transition: all .15s;
+  }
+  .filter-btn:hover { color: var(--text); border-color: var(--subtle); }
+  .filter-btn.active { background: var(--blue2); border-color: var(--accent); color: var(--accent); }
+
+  .search-wrap {
+    flex: 1;
+    min-width: 180px;
+    max-width: 340px;
+    position: relative;
+  }
+
+  #search {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 6px 12px 6px 32px;
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  #search:focus { border-color: var(--accent); }
+  #search::placeholder { color: var(--muted); }
+
+  .search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-size: 12px;
+    pointer-events: none;
+  }
+
+  .copy-all-btn {
+    margin-left: auto;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    color: var(--subtle);
+    padding: 5px 14px;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 11px;
+    transition: all .15s;
+  }
+  .copy-all-btn:hover { background: var(--blue2); border-color: var(--accent); color: var(--accent); }
+
+  /* ── Main layout ─────────────────────────────────────────────── */
+  main {
+    flex: 1;
+    max-width: 1100px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 20px 16px 40px;
+  }
+
+  /* ── Empty / loading states ──────────────────────────────────── */
+  .state-msg {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--muted);
+  }
+  .state-msg .icon { font-size: 40px; margin-bottom: 12px; }
+  .state-msg h2 { color: var(--subtle); font-size: 15px; margin-bottom: 8px; }
+  .state-msg p  { font-size: 12px; line-height: 1.7; max-width: 420px; margin: 0 auto; }
+  .state-msg code {
+    background: var(--surface2);
+    border-radius: 4px;
+    padding: 2px 6px;
+    color: var(--accent);
+    font-size: 11px;
+  }
+
+  /* ── Result card ─────────────────────────────────────────────── */
+  .card {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    overflow: hidden;
+    transition: border-color .15s;
+  }
+  .card:hover { border-color: var(--accent); }
+  .card.failed { border-color: #2a1515; }
+  .card.failed:hover { border-color: var(--red); }
+
+  .card-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px 8px;
+    flex-wrap: wrap;
+  }
+
+  .tag {
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    white-space: nowrap;
+  }
+
+  .tag-host  { background: var(--host-bg);  color: var(--accent); }
+  .tag-m3u8  { background: #1b3a2d;         color: var(--m3u8-col); }
+  .tag-mp4   { background: #2a2010;         color: var(--mp4-col); }
+  .tag-fail  { background: #2a1010;         color: var(--fail-col); }
+  .tag-time  { color: var(--muted); font-size: 10px; margin-left: auto; }
+
+  .card-input {
+    padding: 0 14px 6px;
+    color: var(--subtle);
+    font-size: 11px;
+    word-break: break-all;
+  }
+
+  .card-input::before { content: "🔗 "; }
+
+  .card-url {
+    margin: 0 14px 8px;
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: var(--bright);
+    font-size: 11px;
+    word-break: break-all;
+    line-height: 1.5;
+    user-select: text;
+    cursor: text;
+  }
+
+  .card-error {
+    margin: 0 14px 8px;
+    background: #150d0d;
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: #ef9a9a;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  .card-error::before { content: "⚠ "; }
+
+  .card-extra {
+    padding: 0 14px 4px;
+    color: var(--muted);
+    font-size: 10px;
+  }
+
+  .card-actions {
+    padding: 6px 14px 12px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    border: none;
+    border-radius: 5px;
+    padding: 5px 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    font-weight: 700;
+    transition: all .12s;
+    white-space: nowrap;
+  }
+
+  .btn-copy { background: var(--blue); color: #fff; }
+  .btn-copy:hover { background: #1976d2; }
+  .btn-mpv  { background: #2e7d32; color: #fff; }
+  .btn-mpv:hover  { background: #388e3c; }
+  .btn-vlc  { background: #b26a00; color: #fff; }
+  .btn-vlc:hover  { background: #e65100; }
+
+  .btn.copied { background: #1b5e20 !important; color: var(--green) !important; }
+
+  /* ── Streams accordion ───────────────────────────────────────── */
+  .streams-toggle {
+    background: none;
+    border: 1px solid var(--border2);
+    border-radius: 5px;
+    color: var(--muted);
+    padding: 5px 12px;
+    font-family: var(--mono);
+    font-size: 10px;
+    cursor: pointer;
+    transition: all .12s;
+  }
+  .streams-toggle:hover { border-color: var(--subtle); color: var(--text); }
+
+  .streams-list {
+    display: none;
+    margin: 0 14px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .streams-list.open { display: block; }
+
+  .stream-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+  }
+  .stream-row:last-child { border-bottom: none; }
+
+  .stream-row:hover { background: var(--bg); }
+
+  .stream-label {
+    background: var(--surface);
+    border-radius: 3px;
+    padding: 1px 6px;
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 700;
+    min-width: 60px;
+    text-align: center;
+  }
+
+  .stream-url {
+    flex: 1;
+    color: var(--subtle);
+    word-break: break-all;
+    font-size: 10px;
+  }
+
+  .stream-copy {
+    background: var(--surface);
+    border: none;
+    border-radius: 4px;
+    color: var(--muted);
+    padding: 2px 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    cursor: pointer;
+    transition: all .12s;
+    flex-shrink: 0;
+  }
+  .stream-copy:hover { background: var(--blue); color: #fff; }
+
+  /* ── Results count banner ─────────────────────────────────────── */
+  .results-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .results-bar strong { color: var(--text); }
+
+  /* ── Toast notification ──────────────────────────────────────── */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #1b3a2d;
+    border: 1px solid var(--green);
+    color: var(--green);
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 12px;
+    font-family: var(--mono);
+    z-index: 999;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity .2s, transform .2s;
+    pointer-events: none;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+
+  /* ── Scrollbar ───────────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 8px; background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--subtle); }
+
+  /* ── Footer ──────────────────────────────────────────────────── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 14px 24px;
+    color: var(--muted);
+    font-size: 10px;
+    text-align: center;
+    letter-spacing: .5px;
+  }
+
+  /* ── Responsive ──────────────────────────────────────────────── */
+  @media (max-width: 600px) {
+    .logo { font-size: 15px; }
+    .header-meta { gap: 6px; }
+    main { padding: 12px 8px 32px; }
+    .toolbar { padding: 8px 10px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <div class="logo">⚡ STREAM <span>EXTRACTOR</span></div>
+  <div class="header-meta">
+    <div class="stat-pill" id="stat-total">Loading…</div>
+    <div class="stat-pill" id="stat-ok"></div>
+    <div class="stat-pill" id="stat-time" style="display:none"></div>
+    <button id="refresh-btn" onclick="loadResults()">↻ Refresh</button>
+  </div>
+</header>
+
+<!-- ── Toolbar ── -->
+<div class="toolbar">
+  <button class="filter-btn active" data-filter="all"   onclick="setFilter('all',this)">ALL</button>
+  <button class="filter-btn"        data-filter="ok"    onclick="setFilter('ok',this)">✓ SUCCESS</button>
+  <button class="filter-btn"        data-filter="fail"  onclick="setFilter('fail',this)">✗ FAILED</button>
+  <button class="filter-btn"        data-filter="m3u8"  onclick="setFilter('m3u8',this)">M3U8</button>
+  <button class="filter-btn"        data-filter="mp4"   onclick="setFilter('mp4',this)">MP4</button>
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input id="search" type="text" placeholder="Search URL or host…" oninput="renderCards()">
+  </div>
+  <button class="copy-all-btn" onclick="copyAll()">📋 Copy All URLs</button>
+</div>
+
+<!-- ── Main ── -->
+<main id="main">
+  <div class="state-msg">
+    <div class="icon">⏳</div>
+    <h2>Loading results…</h2>
+    <p>Fetching <code>results.json</code></p>
+  </div>
+</main>
+
+<!-- ── Footer ── -->
+<footer>
+  Stream Extractor · GitHub Actions + GitHub Pages ·
+  Results auto-update on each workflow run ·
+  <a href="https://github.com" style="color:var(--subtle);text-decoration:none;">View Workflow</a>
+</footer>
+
+<!-- ── Toast ── -->
+<div id="toast"></div>
+
+<script>
+  /* ──────────────────────────────────────────────────────────────
+     State
+  ────────────────────────────────────────────────────────────── */
+  let _data   = [];
+  let _filter = 'all';
+
+  /* ──────────────────────────────────────────────────────────────
+     Fetch
+  ────────────────────────────────────────────────────────────── */
+  async function loadResults() {
+    try {
+      const res = await fetch('results.json?_=' + Date.now());
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+
+      _data = (json.results || []).slice().reverse(); // newest first
+
+      // Header stats
+      document.getElementById('stat-total').innerHTML =
+        `Total: <strong>${json.total ?? _data.length}</strong>`;
+      document.getElementById('stat-ok').innerHTML =
+        `Success: <strong style="color:var(--green)">${json.success_count ?? _data.filter(r=>r.success).length}</strong>`;
+
+      if (json.generated_at) {
+        const d = new Date(json.generated_at);
+        const el = document.getElementById('stat-time');
+        el.innerHTML = `Updated: <strong>${d.toLocaleString()}</strong>`;
+        el.style.display = '';
+      }
+
+      renderCards();
+    } catch (e) {
+      document.getElementById('main').innerHTML = `
+        <div class="state-msg">
+          <div class="icon">📭</div>
+          <h2>No results yet</h2>
+          <p>
+            Run the <strong>Stream URL Extractor</strong> workflow in GitHub Actions.<br><br>
+            Go to <code>Actions → 🎬 Stream URL Extractor → Run workflow</code>,
+            paste your URLs and click <strong>Run workflow</strong>.<br><br>
+            Results will appear here automatically after the job completes.
+          </p>
+        </div>`;
+    }
+  }
+
+  /* ──────────────────────────────────────────────────────────────
+     Filter + search
+  ────────────────────────────────────────────────────────────── */
+  function setFilter(f, btn) {
+    _filter = f;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderCards();
+  }
+
+  function filtered() {
+    const q = document.getElementById('search').value.trim().toLowerCase();
+    return _data.filter(r => {
+      if (_filter === 'ok'   && !r.success)                  return false;
+      if (_filter === 'fail' &&  r.success)                  return false;
+      if (_filter === 'm3u8' && r.type !== 'm3u8')           return false;
+      if (_filter === 'mp4'  && r.type !== 'mp4')            return false;
+      if (q) {
+        const hay = ((r.input_url||'')+(r.url||'')+(r.host||'')+(r.error||'')).toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }
+
+  /* ──────────────────────────────────────────────────────────────
+     Render
+  ────────────────────────────────────────────────────────────── */
+  function renderCards() {
+    const rows = filtered();
+    const main = document.getElementById('main');
+
+    if (!rows.length) {
+      main.innerHTML = `
+        <div class="state-msg">
+          <div class="icon">🔍</div>
+          <h2>No results match</h2>
+          <p>Try a different filter or search term.</p>
+        </div>`;
+      return;
+    }
+
+    main.innerHTML = `
+      <div class="results-bar">
+        <strong>${rows.length}</strong> result${rows.length===1?'':'s'}
+        ${_filter !== 'all' ? `— filter: <strong>${_filter}</strong>` : ''}
+      </div>
+      ${rows.map(cardHTML).join('')}
+    `;
+  }
+
+  function cardHTML(r) {
+    const ts = r.timestamp ? new Date(r.timestamp).toLocaleString() : '';
+    const typeTag = r.success
+      ? `<span class="tag tag-${r.type||'fail'}">${(r.type||'?').toUpperCase()}</span>`
+      : `<span class="tag tag-fail">FAILED</span>`;
+
+    const streamsHTML = buildStreamsHTML(r);
+
+    const actions = r.success ? `
+      <div class="card-actions">
+        <button class="btn btn-copy" onclick="copyUrl('${esc(r.url)}', this)">📋 Copy URL</button>
+        <button class="btn btn-mpv"  onclick="copyMPV(${JSON.stringify(r)}, this)">▶ MPV</button>
+        <button class="btn btn-vlc"  onclick="copyVLC('${esc(r.url)}', this)">▶ VLC</button>
+        ${streamsHTML.toggle}
+      </div>
+      ${streamsHTML.list}
+    ` : '';
+
+    return `
+      <div class="card ${r.success ? '' : 'failed'}">
+        <div class="card-head">
+          <span class="tag tag-host">${(r.host||'UNKNOWN').toUpperCase()}</span>
+          ${typeTag}
+          <span class="tag-time">${ts}</span>
+        </div>
+        <div class="card-input">${r.input_url||''}</div>
+        ${r.success
+          ? `<div class="card-url">${r.url||''}</div>`
+          : `<div class="card-error">${r.error||'Unknown error'}</div>`
+        }
+        ${r.extra && r.extra.length > 1
+          ? `<div class="card-extra">+ ${r.extra.length - 1} more stream(s) available</div>`
+          : ''}
+        ${actions}
+      </div>`;
+  }
+
+  function buildStreamsHTML(r) {
+    const list = r.streams;
+    if (!list || (Array.isArray(list) && !list.length) ||
+        (typeof list === 'object' && !Array.isArray(list) && !Object.keys(list).length)) {
+      return { toggle: '', list: '' };
+    }
+
+    const entries = Array.isArray(list)
+      ? list.map(s => ({ label: s.label || '?', url: s.url }))
+      : Object.entries(list).map(([k, v]) => ({ label: k, url: v }));
+
+    if (!entries.length) return { toggle: '', list: '' };
+
+    const id = 'sl_' + Math.random().toString(36).slice(2);
+    const rows = entries.map(e => `
+      <div class="stream-row">
+        <span class="stream-label">${e.label}</span>
+        <span class="stream-url">${e.url}</span>
+        <button class="stream-copy" onclick="copyUrl('${esc(e.url)}', this)">Copy</button>
+      </div>`).join('');
+
+    return {
+      toggle: `<button class="streams-toggle" onclick="toggleStreams('${id}')">
+                 ▸ ${entries.length} quality variant${entries.length>1?'s':''}
+               </button>`,
+      list: `<div class="streams-list" id="${id}">${rows}</div>`,
+    };
+  }
+
+  function toggleStreams(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle('open');
+    const btn = el.previousElementSibling;
+    if (btn) btn.textContent = el.classList.contains('open')
+      ? btn.textContent.replace('▸','▾')
+      : btn.textContent.replace('▾','▸');
+  }
+
+  /* ──────────────────────────────────────────────────────────────
+     Copy helpers
+  ────────────────────────────────────────────────────────────── */
+  function esc(s) { return (s||'').replace(/'/g, "\\'"); }
+
+  function copyText(text) {
+    navigator.clipboard.writeText(text).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta);
+      ta.select(); document.execCommand('copy');
+      document.body.removeChild(ta);
+    });
+  }
+
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2200);
+  }
+
+  function flashBtn(btn, label) {
+    btn.classList.add('copied');
+    const orig = btn.textContent;
+    btn.textContent = label || '✓ Copied!';
+    setTimeout(() => { btn.classList.remove('copied'); btn.textContent = orig; }, 1800);
+  }
+
+  function copyUrl(url, btn) {
+    copyText(url);
+    toast('📋 URL copied to clipboard');
+    if (btn) flashBtn(btn, '✓ Copied!');
+  }
+
+  function copyMPV(r, btn) {
+    let cmd = `mpv "${r.url}"`;
+    const ref = (r.headers||{}).Referer || (r.headers||{}).referer || '';
+    if (ref) cmd += ` --http-header-fields="Referer: ${ref}"`;
+    copyText(cmd);
+    toast('▶ MPV command copied');
+    if (btn) flashBtn(btn, '✓ Copied!');
+  }
+
+  function copyVLC(url, btn) {
+    copyText(`vlc "${url}"`);
+    toast('▶ VLC command copied');
+    if (btn) flashBtn(btn, '✓ Copied!');
+  }
+
+  function copyAll() {
+    const urls = filtered().filter(r => r.success && r.url).map(r => r.url);
+    if (!urls.length) { toast('No successful URLs to copy'); return; }
+    copyText(urls.join('\n'));
+    toast(`📋 ${urls.length} URL${urls.length>1?'s':''} copied`);
+  }
+
+  /* ──────────────────────────────────────────────────────────────
+     Init
+  ────────────────────────────────────────────────────────────── */
+  loadResults();
+
+  // Auto-refresh every 60 s if page is visible
+  setInterval(() => { if (!document.hidden) loadResults(); }, 60_000);
+</script>
+</body>
+</html>
