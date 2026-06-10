@@ -1,0 +1,145 @@
+name: 🎬 Stream URL Extractor
+
+on:
+  workflow_dispatch:
+    inputs:
+      urls:
+        description: "URLs to extract (one per line)"
+        required: true
+        type: string
+      append:
+        description: "Append to existing results (don't clear history)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      label:
+        description: "Optional label / note for this batch"
+        required: false
+        type: string
+
+  # Also allow triggering via repository_dispatch (API / webhooks)
+  repository_dispatch:
+    types: [extract-urls]
+
+permissions:
+  contents: write   # needed to commit results.json to docs/
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # ── 2. Python setup ──────────────────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install requests beautifulsoup4 cloudscraper curl_cffi
+
+      # ── 3. Write URLs to a temp file ─────────────────────────────────────
+      - name: Write input URLs
+        run: |
+          # Support both workflow_dispatch and repository_dispatch
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            URLS="${{ github.event.client_payload.urls }}"
+            APPEND="${{ github.event.client_payload.append || 'false' }}"
+            LABEL="${{ github.event.client_payload.label || '' }}"
+          else
+            URLS="${{ github.event.inputs.urls }}"
+            APPEND="${{ github.event.inputs.append }}"
+            LABEL="${{ github.event.inputs.label || '' }}"
+          fi
+
+          echo "$URLS" > /tmp/urls.txt
+          echo "APPEND_FLAG=$APPEND" >> $GITHUB_ENV
+          echo "BATCH_LABEL=$LABEL" >> $GITHUB_ENV
+          echo "--- Input URLs ---"
+          cat /tmp/urls.txt
+
+      # ── 4. Run extractor ─────────────────────────────────────────────────
+      - name: Extract stream URLs
+        id: extract
+        run: |
+          mkdir -p docs
+
+          APPEND_ARG=""
+          if [ "$APPEND_FLAG" = "true" ]; then
+            APPEND_ARG="--append"
+          fi
+
+          python extract.py \
+            --file /tmp/urls.txt \
+            --json-out docs/results.json \
+            $APPEND_ARG \
+            2>&1 | tee /tmp/extract.log
+
+          # Capture summary
+          SUCCESS=$(python -c "
+          import json
+          with open('docs/results.json') as f:
+              d = json.load(f)
+          print(d['success_count'], '/', d['total'])
+          ")
+          echo "SUMMARY=$SUCCESS" >> $GITHUB_ENV
+          echo "Extracted: $SUCCESS"
+
+        continue-on-error: true   # don't fail the whole job if some URLs fail
+
+      # ── 5. Copy the static viewer into docs/ (idempotent) ────────────────
+      - name: Copy static viewer
+        run: |
+          # index.html is already in docs/ (committed to repo)
+          # This step is a no-op after the first run; it's here for clarity
+          ls -lh docs/
+
+      # ── 6. Commit & push results ─────────────────────────────────────────
+      - name: Commit results
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add docs/results.json
+
+          COMMIT_MSG="🎬 Extract results — ${{ env.SUMMARY }} — $(date -u '+%Y-%m-%d %H:%M UTC')"
+          if [ -n "${{ env.BATCH_LABEL }}" ]; then
+            COMMIT_MSG="$COMMIT_MSG [${{ env.BATCH_LABEL }}]"
+          fi
+
+          git diff --cached --quiet || git commit -m "$COMMIT_MSG"
+          git push
+
+      # ── 7. Print summary in the Actions UI ───────────────────────────────
+      - name: Job summary
+        if: always()
+        run: |
+          echo "## 🎬 Stream Extraction Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Extracted:** ${{ env.SUMMARY }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -n "${{ env.BATCH_LABEL }}" ]; then
+            echo "**Label:** ${{ env.BATCH_LABEL }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "**View results:** https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Extraction Log" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat /tmp/extract.log 2>/dev/null || echo "(no log)"
+          echo '```' >> $GITHUB_STEP_SUMMARY
